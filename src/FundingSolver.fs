@@ -20,7 +20,8 @@ module FundingSolver =
   }
 
   type Msg =
-    | UpdateLineItem of string * float * int
+    | UpdateLineItemCost of string * float
+    | UpdateLineItemQty of string * int
     | UpdateTotalCost of string
     | Solve
 
@@ -63,12 +64,20 @@ module FundingSolver =
     let update : Msg -> State -> State * Cmd<'a> =
       fun (msg: Msg) (state: State) ->
         match msg with
-        | UpdateLineItem (id, price, qty) ->
+        | UpdateLineItemCost (id, price) ->
             let newState = 
               match id with
-              | "11_022" -> { state with ``11_022`` = { state.``11_022`` with Price = price; Qty = qty } }
-              | "11_023" -> { state with ``11_023`` = { state.``11_023`` with Price = price; Qty = qty } }
-              | "11_024" -> { state with ``11_024`` = { state.``11_024`` with Price = price; Qty = qty } }
+              | "11_022" -> { state with ``11_022`` = { state.``11_022`` with Price = price } }
+              | "11_023" -> { state with ``11_023`` = { state.``11_023`` with Price = price } }
+              | "11_024" -> { state with ``11_024`` = { state.``11_024`` with Price = price } }
+              | _ -> failwith "Invalid line item id"
+            newState, Cmd.none
+        | UpdateLineItemQty (id, qty) ->
+            let newState = 
+              match id with
+              | "11_022" -> { state with ``11_022`` = { state.``11_022`` with Qty = qty } }
+              | "11_023" -> { state with ``11_023`` = { state.``11_023`` with Qty = qty } }
+              | "11_024" -> { state with ``11_024`` = { state.``11_024`` with Qty = qty } }
               | _ -> failwith "Invalid line item id"
             newState, Cmd.none
         | UpdateTotalCost tc ->
@@ -90,7 +99,7 @@ module FundingSolver =
       prop.className "absolute inset-0 bg-[url(http://play.tailwindcss.com/img/grid.svg)] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"
     ]
 
-  let priceInput price =
+  let priceInput dispatch itemId price =
     Html.div [
       prop.classes [ "relative"; "col-span-5"; "col-start-1"; "mt-2"; "rounded-md"; "shadow-sm" ]
       prop.children [
@@ -109,6 +118,7 @@ module FundingSolver =
           prop.max 999.99
           prop.maxLength 7
           prop.value (string price)
+          prop.onChange (fun x -> UpdateLineItemCost (itemId, x) |> dispatch)
         ]
         Html.div [
           prop.classes [ "pointer-events-none"; "absolute"; "inset-y-0"; "right-0"; "flex"; "items-center"; "pr-3" ]
@@ -117,7 +127,7 @@ module FundingSolver =
       ]
     ]
 
-  let qtyInput (item: LineItem) =
+  let qtyInput dispatch itemId (item: LineItem) =
     Html.div [
       prop.className "relative col-span-3 col-start-6 mt-2 rounded-md shadow-sm"
       prop.children [
@@ -131,6 +141,7 @@ module FundingSolver =
           prop.max 999
           prop.maxLength 3
           prop.value (string item.Qty)
+          prop.onChange (fun x -> UpdateLineItemQty(itemId, x) |> dispatch)
         ]
         Html.div [
           prop.className "pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"
@@ -139,7 +150,7 @@ module FundingSolver =
       ]
     ]
 
-  let lineItem (item: LineItem) =
+  let lineItem dispatch (item: LineItem) =
     Html.div [
       prop.className "mt-2"
       prop.children [
@@ -147,8 +158,8 @@ module FundingSolver =
         Html.div [
           prop.className "grid grid-cols-8 gap-x-4"
           prop.children [
-            priceInput item.Price
-            qtyInput item
+            priceInput dispatch item.Id item.Price
+            qtyInput dispatch item.Id item
           ]
         ]
       ]
@@ -258,9 +269,9 @@ module FundingSolver =
                 Html.div [
                   prop.children [
                     Html.div [
-                      lineItem state.``11_022``
-                      lineItem state.``11_023``
-                      lineItem state.``11_024``
+                      lineItem dispatch state.``11_022``
+                      lineItem dispatch state.``11_023``
+                      lineItem dispatch state.``11_024``
                     ]
                     totalInput dispatch state.TotalCost
                     button "Solve" (fun _ -> Solve |> dispatch)
