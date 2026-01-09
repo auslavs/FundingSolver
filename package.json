@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "postinstall": "dotnet tool restore",
+    "setup-dotnet": "echo 'Run this command to add dotnet to PATH:' && echo 'export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools'",
     "start": "dotnet fable watch src -o dist -e .jsx --run vite --base=/",
     "build": "dotnet fable src -o dist -e .jsx --run vite build"
   },
