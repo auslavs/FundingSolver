@@ -3,8 +3,31 @@ namespace FundingSolver.Components
 open Feliz
 open Elmish
 open Feliz.UseElmish
+open Fable.Core
+open Fable.Core.JsInterop
 
 module FundingSolver =
+
+  // Web Worker interop
+  type WorkerMessageData = {
+    price022: float
+    price023: float
+    price024: float
+    totalCost: float
+    maxQty: int
+  }
+
+  type WorkerResponseData = {
+    ``type``: string
+    solutions: (int * int * int) array option
+  }
+
+  [<Global>]
+  type Worker(scriptPath: string) =
+    member _.postMessage(msg: obj): unit = jsNative
+    member _.terminate(): unit = jsNative
+    [<Emit("$0.addEventListener('message', $1)")>]
+    member _.addEventListener(eventType: string, handler: Browser.Types.MessageEvent -> unit): unit = jsNative
 
   type LineItemResult = {
     Id: string
@@ -39,7 +62,7 @@ module FundingSolver =
   module State =
 
     let [<Literal>] MaxQty = 500
-    
+
     let init () =
       { TotalCost = ""
         ``11_022`` = { Id = "11_022"; Price = 214.41 }
@@ -49,8 +72,8 @@ module FundingSolver =
       }, Cmd.none
 
 
-    let solve (state: State) = async {
-      printfn "Solving..."
+    let solve (state: State) (onComplete: SolverResult -> unit) =
+      printfn "Solving using Web Worker..."
 
       let _022 = state.``11_022``
       let _023 = state.``11_023``
@@ -58,28 +81,57 @@ module FundingSolver =
 
       match System.Double.TryParse(state.TotalCost) with
       | (true, totalCost) ->
-          return
-            [ for x in [0..MaxQty] do
-              for y in [0..MaxQty] do
-              for z in [0..MaxQty] do
-                if (_022.Price * (float x)) + (_023.Price * (float y)) + (_024.Price * (float z)) = totalCost then
-                  yield ( 
-                    { Id = "11_022"; Qty = x },
-                    { Id = "11_023"; Qty = y },
-                    { Id = "11_024"; Qty = z }
-                  )
-            ] |> function
-            | [] -> NoSolutionsFound
-            | x -> Success x
-      | (false, _) -> return Error "Total cost is not a valid number"
-    }
+          // Create worker instance - using relative path to the worker file
+          let worker = Worker("/src/solver-worker.js")
+
+          // Set up message handler
+          worker.addEventListener("message", fun (e: Browser.Types.MessageEvent) ->
+            try
+              let response = e.data :?> WorkerResponseData
+              let result =
+                match response.``type`` with
+                | "Solutions" ->
+                    match response.solutions with
+                    | Some sols ->
+                        sols
+                        |> Array.toList
+                        |> List.map (fun (x, y, z) ->
+                          { Id = "11_022"; Qty = x },
+                          { Id = "11_023"; Qty = y },
+                          { Id = "11_024"; Qty = z }
+                        )
+                        |> function
+                        | [] -> NoSolutionsFound
+                        | x -> Success x
+                    | None -> NoSolutionsFound
+                | "NoSolutions" -> NoSolutionsFound
+                | _ -> Error "Unknown response type from worker"
+
+              worker.terminate()
+              onComplete result
+            with ex ->
+              worker.terminate()
+              onComplete (Error ex.Message)
+          )
+
+          // Send message to worker
+          let msg: WorkerMessageData = {
+            price022 = _022.Price
+            price023 = _023.Price
+            price024 = _024.Price
+            totalCost = totalCost
+            maxQty = MaxQty
+          }
+          worker.postMessage(msg)
+
+      | (false, _) -> onComplete (Error "Total cost is not a valid number")
 
 
     let update : Msg -> State -> State * Cmd<Msg> =
       fun (msg: Msg) (state: State) ->
         match msg with
         | UpdateLineItemCost (id, price) ->
-            let newState = 
+            let newState =
               match id with
               | "11_022" -> { state with ``11_022`` = { state.``11_022`` with Price = price } }
               | "11_023" -> { state with ``11_023`` = { state.``11_023`` with Price = price } }
@@ -89,8 +141,9 @@ module FundingSolver =
         | UpdateTotalCost tc ->
             { state with TotalCost = tc }, Cmd.none
         | Solve ->
-            let solveAsync () = state |> solve
-            { state with Result = InProgress }, Cmd.OfAsync.perform solveAsync () Solved
+            let solveCmd dispatch =
+              solve state (fun result -> dispatch (Solved result))
+            { state with Result = InProgress }, Cmd.ofSub solveCmd
         | Solved result ->
             { state with Result = result }, Cmd.none
 
