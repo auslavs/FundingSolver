@@ -71,7 +71,9 @@ module FundingSolver =
 
         match System.Double.TryParse(state.TotalCost) with
         | (true, totalCost) ->
-            let worker = Worker("/dist/SolverWorker.js", { ``type`` = "module" })
+            // Vite sets BASE_URL to "/" in dev and "/FundingSolver/" in production
+            let workerPath: string = JsInterop.emitJsExpr () "import.meta.env.BASE_URL + 'SolverWorker.js'"
+            let worker = Worker(workerPath, { ``type`` = "module" })
 
             worker.set_onmessage(fun (e: Browser.Types.MessageEvent) ->
               try
@@ -109,9 +111,9 @@ module FundingSolver =
               totalCost = totalCost
               maxQty = MaxQty
             }
-            worker.postMessage(msg)
+            worker.postMessage msg
 
-        | (false, _) -> resolve (Error "Total cost is not a valid number")
+        | false, _ -> resolve (Error "Total cost is not a valid number")
       )
 
 

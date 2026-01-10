@@ -5,7 +5,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm run:*)",
       "Bash(npm start)",
-      "Bash(dotnet list:*)"
+      "Bash(dotnet list:*)",
+      "Bash(curl:*)"
     ]
   }
 }
