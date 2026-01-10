@@ -4,30 +4,19 @@ open Feliz
 open Elmish
 open Feliz.UseElmish
 open Fable.Core
-open Fable.Core.JsInterop
+open Fable.Core.JS
+open FundingSolver.WorkerTypes
 
 module FundingSolver =
 
-  // Web Worker interop
-  type WorkerMessageData = {
-    price022: float
-    price023: float
-    price024: float
-    totalCost: float
-    maxQty: int
-  }
-
-  type WorkerResponseData = {
-    ``type``: string
-    solutions: (int * int * int) array option
-  }
+  type WorkerOptions = { ``type``: string }
 
   [<Global>]
-  type Worker(scriptPath: string) =
+  type Worker(scriptPath: string, ?options: WorkerOptions) =
     member _.postMessage(msg: obj): unit = jsNative
     member _.terminate(): unit = jsNative
-    [<Emit("$0.addEventListener('message', $1)")>]
-    member _.addEventListener(eventType: string, handler: Browser.Types.MessageEvent -> unit): unit = jsNative
+    [<Emit("$0.onmessage = $1")>]
+    member _.set_onmessage(handler: Browser.Types.MessageEvent -> unit): unit = jsNative
 
   type LineItemResult = {
     Id: string
@@ -72,59 +61,58 @@ module FundingSolver =
       }, Cmd.none
 
 
-    let solve (state: State) (onComplete: SolverResult -> unit) =
-      printfn "Solving using Web Worker..."
+    let solve (state: State) : Promise<SolverResult> =
+      Constructors.Promise.Create (fun resolve _reject ->
+        printfn "Solving using Web Worker..."
 
-      let _022 = state.``11_022``
-      let _023 = state.``11_023``
-      let _024 = state.``11_024``
+        let _022 = state.``11_022``
+        let _023 = state.``11_023``
+        let _024 = state.``11_024``
 
-      match System.Double.TryParse(state.TotalCost) with
-      | (true, totalCost) ->
-          // Create worker instance - using relative path to the worker file
-          let worker = Worker("/src/solver-worker.js")
+        match System.Double.TryParse(state.TotalCost) with
+        | (true, totalCost) ->
+            let worker = Worker("/dist/SolverWorker.js", { ``type`` = "module" })
 
-          // Set up message handler
-          worker.addEventListener("message", fun (e: Browser.Types.MessageEvent) ->
-            try
-              let response = e.data :?> WorkerResponseData
-              let result =
-                match response.``type`` with
-                | "Solutions" ->
-                    match response.solutions with
-                    | Some sols ->
-                        sols
-                        |> Array.toList
-                        |> List.map (fun (x, y, z) ->
-                          { Id = "11_022"; Qty = x },
-                          { Id = "11_023"; Qty = y },
-                          { Id = "11_024"; Qty = z }
-                        )
-                        |> function
-                        | [] -> NoSolutionsFound
-                        | x -> Success x
-                    | None -> NoSolutionsFound
-                | "NoSolutions" -> NoSolutionsFound
-                | _ -> Error "Unknown response type from worker"
+            worker.set_onmessage(fun (e: Browser.Types.MessageEvent) ->
+              try
+                let response = e.data :?> WorkerResponseData
+                let result =
+                  match response.``type`` with
+                  | "Solutions" ->
+                      match response.solutions with
+                      | Some sols ->
+                          sols
+                          |> List.ofArray
+                          |> List.map (fun (x, y, z) ->
+                            { Id = "11_022"; Qty = x },
+                            { Id = "11_023"; Qty = y },
+                            { Id = "11_024"; Qty = z }
+                          )
+                          |> function
+                          | [] -> NoSolutionsFound
+                          | x -> Success x
+                      | None -> NoSolutionsFound
+                  | "NoSolutions" -> NoSolutionsFound
+                  | _ -> Error "Unknown response type from worker"
 
-              worker.terminate()
-              onComplete result
-            with ex ->
-              worker.terminate()
-              onComplete (Error ex.Message)
-          )
+                worker.terminate()
+                resolve result
+              with ex ->
+                worker.terminate()
+                resolve (Error ex.Message)
+            )
 
-          // Send message to worker
-          let msg: WorkerMessageData = {
-            price022 = _022.Price
-            price023 = _023.Price
-            price024 = _024.Price
-            totalCost = totalCost
-            maxQty = MaxQty
-          }
-          worker.postMessage(msg)
+            let msg: WorkerMessageData = {
+              price022 = _022.Price
+              price023 = _023.Price
+              price024 = _024.Price
+              totalCost = totalCost
+              maxQty = MaxQty
+            }
+            worker.postMessage(msg)
 
-      | (false, _) -> onComplete (Error "Total cost is not a valid number")
+        | (false, _) -> resolve (Error "Total cost is not a valid number")
+      )
 
 
     let update : Msg -> State -> State * Cmd<Msg> =
@@ -141,9 +129,7 @@ module FundingSolver =
         | UpdateTotalCost tc ->
             { state with TotalCost = tc }, Cmd.none
         | Solve ->
-            let solveCmd dispatch =
-              solve state (fun result -> dispatch (Solved result))
-            { state with Result = InProgress }, Cmd.ofSub solveCmd
+            { state with Result = InProgress }, Cmd.OfPromise.perform solve state Solved
         | Solved result ->
             { state with Result = result }, Cmd.none
 

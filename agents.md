@@ -31,7 +31,7 @@ Published to npm as `@auslavs/funding-solver` and distributed via CDN. Can be em
 ### Prerequisites
 
 1. **Node.js** - Required for npm package management and build tools
-2. **.NET 6.0 SDK** - Required for F# compilation via Fable
+2. **.NET 8.0 SDK** - Required for F# compilation via Fable
 
 ### Installing .NET SDK
 
@@ -41,7 +41,7 @@ If dotnet is not available in your environment, install it using the official sc
 # Download and run the .NET install script
 wget https://dot.net/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
 chmod +x /tmp/dotnet-install.sh
-/tmp/dotnet-install.sh --channel 6.0 --install-dir $HOME/.dotnet
+/tmp/dotnet-install.sh --channel 8.0 --install-dir $HOME/.dotnet
 ```
 
 ### Setting up PATH
