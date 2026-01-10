@@ -135,7 +135,7 @@ module FundingSolver =
 
   let logo =
     Html.img [ 
-      prop.src "http://play.tailwindcss.com/img/beams.jpg"
+      prop.src "https://play.tailwindcss.com/img/beams.jpg"
       prop.alt ""
       prop.className "absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
       prop.width 1308
