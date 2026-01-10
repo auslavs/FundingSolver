@@ -1,14 +1,13 @@
 {
-  "name": "@auslavs/funding-solver",
-  "version": "1.0.0",
+  "name": "funding-solver",
+  "private": true,
   "license": "MIT",
-  "files": [
-      "dist/"
-  ],
   "scripts": {
     "postinstall": "dotnet tool restore",
-    "start": "dotnet fable watch src -o dist -e .jsx --run vite --base=/",
-    "build": "dotnet fable src -o dist -e .jsx --run vite build"
+    "setup-dotnet": "echo 'Run this command to add dotnet to PATH:' && echo 'export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools'",
+    "fable:worker": "dotnet fable src/SolverWorker.fsproj -o dist -e .js",
+    "start": "npm run fable:worker && dotnet fable watch src/FundingSolver.fsproj -o dist -e .jsx --run vite --base=/",
+    "build": "npm run fable:worker && dotnet fable src/FundingSolver.fsproj -o dist -e .jsx --run vite build"
   },
   "dependencies": {
     "preact": "^10.18.2",
