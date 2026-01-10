@@ -1,10 +1,7 @@
 {
-  "name": "@auslavs/funding-solver",
-  "version": "1.0.0",
+  "name": "funding-solver",
+  "private": true,
   "license": "MIT",
-  "files": [
-      "dist/"
-  ],
   "scripts": {
     "postinstall": "dotnet tool restore",
     "setup-dotnet": "echo 'Run this command to add dotnet to PATH:' && echo 'export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools'",
