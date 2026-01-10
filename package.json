@@ -5,9 +5,9 @@
   "scripts": {
     "postinstall": "dotnet tool restore",
     "setup-dotnet": "echo 'Run this command to add dotnet to PATH:' && echo 'export PATH=$PATH:$HOME/.dotnet:$HOME/.dotnet/tools'",
-    "fable:worker": "dotnet fable src/SolverWorker.fsproj -o dist -e .js",
+    "fable:worker": "dotnet fable src/SolverWorker.fsproj -o dist -e .js --noCache",
     "start": "npm run fable:worker && dotnet fable watch src/FundingSolver.fsproj -o dist -e .jsx --run vite --base=/",
-    "build": "npm run fable:worker && dotnet fable src/FundingSolver.fsproj -o dist -e .jsx --run vite build"
+    "build": "npm run fable:worker && dotnet fable src/FundingSolver.fsproj -o dist -e .jsx --noCache --run vite build"
   },
   "dependencies": {
     "preact": "^10.18.2",

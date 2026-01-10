@@ -24,7 +24,9 @@ Built as a reusable web component using:
 
 ## Distribution
 
-Published to npm as `@auslavs/funding-solver` and distributed via CDN. Can be embedded in any web application as `<funding-solver />`.
+Deployed to GitHub Pages via GitHub Actions. The application is automatically built and deployed when changes are pushed to the main branch.
+
+**Note:** The build uses `--noCache` flag for Fable compilation to ensure all dependency modules (Fable.Elmish, Feliz, etc.) are properly generated in the output directory.
 
 ## Development Setup
 
