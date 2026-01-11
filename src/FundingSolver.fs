@@ -135,17 +135,40 @@ module FundingSolver =
         | Solved result ->
             { state with Result = result }, Cmd.none
 
-  let logo =
-    Html.img [ 
-      prop.src "https://play.tailwindcss.com/img/beams.jpg"
-      prop.alt ""
-      prop.className "absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2"
-      prop.width 1308
-    ]
+  let backgroundAnimation = """
+    @keyframes grid-move {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 40px; }
+    }
+    .animate-grid {
+      animation: grid-move 3s linear infinite;
+    }
+  """
 
   let background =
     Html.div [
-      prop.className "absolute inset-0 bg-[url(http://play.tailwindcss.com/img/grid.svg)] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"
+      prop.className "hidden sm:block absolute inset-0"
+      prop.children [
+        Html.style backgroundAnimation
+        // Gradient background
+        Html.div [
+          prop.className "absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-indigo-50"
+        ]
+        // Grid pattern using inline SVG data URI
+        Html.div [
+          prop.className "absolute inset-0 bg-[length:40px_40px] [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] animate-grid"
+          prop.style [
+            style.backgroundImage "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 0h40v40H0z' fill='none' stroke='%23e0e7ff' stroke-width='1'/%3E%3C/svg%3E\")"
+          ]
+        ]
+        // Decorative blurred circles
+        Html.div [
+          prop.className "absolute -top-20 -right-20 w-80 h-80 bg-sky-200 rounded-full blur-3xl opacity-30"
+        ]
+        Html.div [
+          prop.className "absolute -bottom-20 -left-20 w-80 h-80 bg-indigo-200 rounded-full blur-3xl opacity-30"
+        ]
+      ]
     ]
 
   let priceInput dispatch itemId price =
@@ -266,35 +289,31 @@ module FundingSolver =
 
   let result (result: SolverResult) =
 
-    let listItem (name: string) (value: string) =
-      Html.li [
-        prop.className "col-span-1 divide-y divide-gray-200 rounded-lg"
-        prop.children [ 
-          Html.div [ 
-            prop.className "flex w-full items-center justify-between space-x-6 py-6"
-            prop.children [ 
-              Html.div [ 
-                prop.className "flex-1 truncate"
-                prop.children [ 
-                  Html.div [ 
-                    prop.className "flex"
-                    prop.children [ 
-                      Html.h3 [ prop.className "truncate text-sm font-medium text-gray-900 w-full text-center"; prop.text name ] 
-                    ] 
-                  ]
-                  Html.p [ prop.className [ "mt-1 truncate text-6xl text-gray-500 w-full text-center" ]; prop.text value ] 
-                ] 
-              ] 
-            ] 
-          ] 
-        ] 
+    let solutionColumn (itemId: string) (qty: int) =
+      Html.div [
+        prop.className "flex flex-col items-center"
+        prop.children [
+          Html.span [ prop.className "text-sm text-gray-500"; prop.text itemId ]
+          Html.span [ prop.className "text-3xl font-bold text-gray-900 mt-1"; prop.text (string qty) ]
+          Html.span [ prop.className "text-sm text-gray-500 mt-1"; prop.text "units" ]
+        ]
       ]
 
-    let createRow (x, y, z) = [
-      listItem "11_022" $"%d{x.Qty}"
-      listItem "11_023" $"%d{y.Qty}"
-      listItem "11_024" $"%d{z.Qty}"
-    ]
+    let solutionCard (index: int) (x: LineItemResult, y: LineItemResult, z: LineItemResult) =
+      Html.div [
+        prop.className "bg-white rounded-lg shadow border-l-4 border-green-400 p-4 mb-4"
+        prop.children [
+          Html.h4 [ prop.className "text-sm font-medium text-gray-700 mb-4"; prop.text $"Solution {index + 1}" ]
+          Html.div [
+            prop.className "grid grid-cols-3 gap-4"
+            prop.children [
+              solutionColumn x.Id x.Qty
+              solutionColumn y.Id y.Qty
+              solutionColumn z.Id z.Qty
+            ]
+          ]
+        ]
+      ]
 
     match result with
     | InProgress -> Html.none
@@ -302,22 +321,28 @@ module FundingSolver =
     | Error msg -> Html.div [ prop.className "mt-6"; prop.text msg ]
     | NotStarted -> Html.none
     | Success resultLst ->
-        Html.ul [ 
-          prop.className "grid grid-cols-3 gap-6 mt-6 border-1 border-blue-100 rounded-lg bg-gray-50 shadow"
-          prop.role "list"
-          prop.children (resultLst |> List.collect createRow)
+        Html.div [
+          prop.className "mt-6"
+          prop.children [
+            Html.h3 [ 
+              prop.className "text-lg font-semibold text-gray-900 mb-4"
+              prop.text $"Solutions Found ({List.length resultLst})" 
+            ]
+            Html.div [
+              prop.children (resultLst |> List.mapi solutionCard)
+            ]
+          ]
         ]
 
 
   let page dispatch (state: State) =
     Html.div [
-      prop.className "relative flex min-h-screen flex-col justify-center overflow-hidden bg-gray-50 py-6 sm:py-12"
+      prop.className "relative flex h-screen flex-col sm:justify-center overflow-hidden bg-white sm:bg-gray-50 py-0 sm:py-12"
       prop.children [
         Html.style FundingSolver.Tailwind.css
-        logo
         background
         Html.div [
-          prop.classes [ "relative"; "bg-white"; "px-6"; "pb-8"; "pt-10"; "shadow-xl"; "ring-1"; "ring-gray-900/5"; "sm:mx-auto"; "sm:max-w-lg"; "sm:rounded-lg"; "sm:px-10" ]
+          prop.classes [ "relative"; "bg-white"; "px-6"; "pb-8"; "pt-10"; "h-full"; "sm:h-auto"; "overflow-y-auto"; "shadow-none"; "sm:shadow-xl"; "ring-0"; "sm:ring-1"; "sm:ring-gray-900/5"; "sm:mx-auto"; "sm:max-w-lg"; "sm:rounded-lg"; "sm:px-10" ]
           prop.children [
             Html.div [
               prop.className "mx-auto max-w-md sm:w-96 "
